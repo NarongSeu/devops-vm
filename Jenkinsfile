@@ -51,7 +51,7 @@ pipeline {
         // Stage 1: Git Clone
         stage('Git Clone') {
             steps {
-                git branch: 'main', url: 'https://github.com/keoKAY/reactjs-devop8-template.git'[cite: 1]
+                git branch: 'main', url: 'https://github.com/NarongSeu/devops-vm.git'[cite: 1]
             }
         }
 
