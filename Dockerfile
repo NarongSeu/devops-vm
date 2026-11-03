@@ -1,20 +1,35 @@
-# # Layered 
-# FROM node:22-alpine
-# WORKDIR /app
-# COPY package*.json ./
-# RUN npm install
-# COPY . .
-# RUN npm run build
-# RUN npm install -g serve
-# EXPOSE 3000
-# CMD ["serve", "-s", "build", "-l", "3000"]
-# Layered Dockerfile for React.js
-FROM node:22-alpine
+# Stage 1: Dependencies
+FROM node:20-slim AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
+
+# Stage 2: Builder
+FROM node:20-slim AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
-RUN npm install -g serve
-EXPOSE 3000
-CMD ["serve", "-s", "build", "-l", "3000"]
+
+# Stage 3: Runner
+FROM node:20-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME="0.0.0.0"
+ENV PORT=80
+
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 80
+
+CMD ["node", "server.js"]
