@@ -1,50 +1,11 @@
-// pipeline {
-//     agent any
-
-//     stages {
-//         stage("Build"){
-//             steps{
-//                 sh """
-//                     docker build -t jenkins-react-pipeline . 
-//                 """
-//             }
-//         }
-
-
-//         stage("Deploy"){
-//             steps{
-//                 sh"""
-                
-//                  docker stop reactjs-cont || true 
-//                 docker rm reactjs-cont || true 
-                
-//                 docker run -dp 3000:80 \
-//                     --name reactjs-cont \
-//                     jenkins-react-pipeline
-//                 """
-
-//             }
-//         }
-    
-//         stage("Add Domain name "){
-//             steps{
-//                 sh """
-//                 echo "Runing shellscript to add the domain name for the service " 
-                
-//                 """
-//             }
-//         }
-        
-//     }
-// }
 pipeline {
     agent any
-    
+
     environment {
-        // Updated to match your exact Docker Hub repository name
         DOCKER_HUB_REPO = 'narongseu09030903/devsolve'
-        // Jenkins Credential ID configured in Jenkins Dashboard
-        CREDENTIALS_ID = 'dockerhub-credentials'
+        IMAGE_TAG       = "${env.BUILD_NUMBER}"
+        DOCKER_CREDS    = 'dockerhub-credentials'
+        CONTAINER_NAME  = 'reactjs-cont'
     }
 
     stages {
@@ -55,45 +16,41 @@ pipeline {
             }
         }
 
-        // Stage 2: Build Docker Image using Layered Dockerfile
+        // Stage 2: Build Docker Image
         stage('Build') {
             steps {
-                sh """
-                    docker build -t ${DOCKER_HUB_REPO}:${env.BUILD_NUMBER} -t ${DOCKER_HUB_REPO}:latest .
-                """
+                echo "Building Docker Image..."
+                sh "docker build -t ${DOCKER_HUB_REPO}:${IMAGE_TAG} ."
+                sh "docker tag ${DOCKER_HUB_REPO}:${IMAGE_TAG} ${DOCKER_HUB_REPO}:latest"
             }
         }
 
-        // Stage 3: Push to DockerHub with Jenkins Credentials Injection
-        stage('Push') {
+        // Stage 3: Push to Docker Hub
+        stage('Push Docker Hub') {
             steps {
-                script {
-                    echo "Injecting Jenkins Credentials and pushing to DockerHub..."
-                    withCredentials([usernamePassword(credentialsId: "${CREDENTIALS_ID}", 
-                                                      usernameVariable: 'DOCKER_USER', 
-                                                      passwordVariable: 'DOCKER_PASS')]) {
-                        sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
-                        sh "docker push ${DOCKER_HUB_REPO}:${env.BUILD_NUMBER}"
-                        sh "docker push ${DOCKER_HUB_REPO}:latest"
-                    }
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                    sh "docker push ${DOCKER_HUB_REPO}:${IMAGE_TAG}"
+                    sh "docker push ${DOCKER_HUB_REPO}:latest"
                 }
             }
         }
 
-        // Stage 4: Deploy (Mapping host port 3005 to container port 3000)
+        // Stage 4: Deploy
         stage('Deploy') {
             steps {
+                echo "Deploying Container on port 3005:3000..."
                 sh """
-                    docker stop reactjs-cont || true 
-                    docker rm reactjs-cont || true 
-                    
-                    docker run -d -p 3005:3000 \
-                        --name reactjs-cont \
-                        ${DOCKER_HUB_REPO}:latest
+                    # Stop and remove existing container if running
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+
+                    # Run new container mapping host port 3005 to container port 3000
+                    docker run -d --name ${CONTAINER_NAME} -p 3005:3000 ${DOCKER_HUB_REPO}:latest
                 """
             }
         }
-    
+
         // Stage 5: Add Domain Name
         stage('Add Domain Name') {
             steps {
@@ -103,8 +60,14 @@ pipeline {
             }
         }
     }
-    
+
     post {
+        always {
+            sh '''
+                docker logout || true
+                docker image prune -f || true
+            '''
+        }
         success {
             echo "Pipeline executed successfully! Application is running on port 3005."
         }
