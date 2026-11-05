@@ -20,7 +20,7 @@ describe('Routing Test About Us', () => {
       </MemoryRouter>
     ); 
     // Assert 
-    expect(screen.getByText(/About Our Team3333/i)).toBeInTheDocument();
+    expect(screen.getByText(/About Our Team/i)).toBeInTheDocument();
 
   })
 
