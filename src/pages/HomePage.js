@@ -17,7 +17,7 @@ const HomePage = () => {
                     <div className="d-flex pt-5">
                         <button className="btn btn-success px-4 py-2">
                             {" "}
-                            <strong> Join Now </strong>{" "}
+                            <strong> Join Now Hello</strong>{" "}
                         </button>
                         <button className="ps-4 nav-link">
                             <span>
