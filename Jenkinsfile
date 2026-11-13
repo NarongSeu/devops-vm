@@ -39,12 +39,6 @@ pipeline {
 
     stages {
 
-        stage('Call Other Job') {
-            steps {
-                build job: 'first-demo'
-            }
-        }
-
         stage('Test Tools') {
             steps {
                 sh '''
