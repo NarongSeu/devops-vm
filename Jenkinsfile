@@ -6,6 +6,14 @@ pipeline {
         nodejs 'nodejs-v22'
     }
 
+    parameters {
+        booleanParam(
+            name: 'RUN_TEST',
+            defaultValue: false,
+            description: 'Run React application tests'
+        )
+    }
+
     environment {
         DOCKER_HUB_REPO = 'narongseu09030903/devsolve'
         IMAGE_TAG       = "${BUILD_NUMBER}"
@@ -13,21 +21,41 @@ pipeline {
         CONTAINER_NAME  = 'reactjs-cont'
     }
 
+    options {
+        // Keep the latest 3 builds or builds from the last 7 days
+        timeout(time: 15, unit: 'MINUTES')
+        buildDiscarder(
+            logRotator(
+                numToKeepStr: '3',
+                daysToKeepStr: '7'
+            )
+        )
+    }
+
     stages {
 
-        // Stage 1: Check Tools
+        // Stage 1: Call another Jenkins job
+        stage('Call Other Job') {
+            steps {
+                build 'first-demo'
+            }
+        }
+
+        // Stage 2: Check tools
         stage('Test Tools') {
             steps {
                 sh '''
-                    echo "Checking NodeJS..."
+                    echo "Checking installed tools..."
                     node --version
                     npm --version
                     docker --version
+                    git --version
+                    java -version
                 '''
             }
         }
 
-        // Stage 2: Git Clone
+        // Stage 3: Git Clone
         stage('Git Clone') {
             steps {
                 echo 'Cloning GitHub Repository...'
@@ -37,28 +65,76 @@ pipeline {
             }
         }
 
-        stage("Run test"){
-            steps{
-                sh"""
-                    npm install 
+        // Stage 4: Run Tests (Optional)
+        stage('Run Test') {
+            when {
+                expression {
+                    params.RUN_TEST == true
+                }
+            }
+            steps {
+                sh '''
+                    echo "Installing dependencies..."
+                    npm install
+
+                    echo "Running tests..."
                     npm run test
-                """
+                '''
             }
         }
 
-        // Stage 3: Build Docker Image
+        // Stage 5: SonarQube Analysis
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'SonarQube'
+
+                    withSonarQubeEnv('SonarQube') {
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=devops-vm \
+                            -Dsonar.projectName=devops-vm \
+                            -Dsonar.sources=. \
+                            -Dsonar.sourceEncoding=UTF-8 \
+                            -Dsonar.exclusions=node_modules/**,build/**,dist/**
+                        """
+                    }
+                }
+            }
+        }
+
+        // Stage 6: Quality Gate
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    script {
+                        def qg = waitForQualityGate(
+                            abortPipeline: true
+                        )
+
+                        echo "Quality Gate Status: ${qg.status}"
+                    }
+                }
+            }
+        }
+
+        // Stage 7: Build Docker Image
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker Image...'
 
                 sh '''
-                    docker build -t ${DOCKER_HUB_REPO}:${IMAGE_TAG} .
-                    docker tag ${DOCKER_HUB_REPO}:${IMAGE_TAG} ${DOCKER_HUB_REPO}:latest
+                    docker build \
+                        -t ${DOCKER_HUB_REPO}:${IMAGE_TAG} .
+
+                    docker tag \
+                        ${DOCKER_HUB_REPO}:${IMAGE_TAG} \
+                        ${DOCKER_HUB_REPO}:latest
                 '''
             }
         }
 
-        // Stage 4: Push Docker Hub
+        // Stage 8: Push Docker Hub
         stage('Push Docker Hub') {
             steps {
                 withCredentials([
@@ -81,7 +157,7 @@ pipeline {
             }
         }
 
-        // Stage 5: Deploy
+        // Stage 9: Deploy
         stage('Deploy') {
             steps {
                 echo 'Deploying React Application...'
@@ -101,11 +177,13 @@ pipeline {
             }
         }
 
-        // Stage 6: Verify
+        // Stage 10: Verify Application
         stage('Verify Application') {
             steps {
                 sh '''
+                    echo "Waiting for application..."
                     sleep 5
+
                     curl -f http://localhost:3005
                 '''
             }
@@ -115,11 +193,13 @@ pipeline {
     post {
         always {
             sh 'docker logout || true'
+            cleanWs()
         }
 
         success {
             echo 'SUCCESS: Pipeline executed successfully!'
-            echo 'Application: http://YOUR_SERVER_IP:3005'
+            echo 'SonarQube: http://3.25.79.190:9000'
+            echo 'Application: http://3.25.79.190:3005'
         }
 
         failure {
