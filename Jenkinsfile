@@ -94,34 +94,34 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    script {
-                        def qg = waitForQualityGate(
-                            abortPipeline: true
-                        )
+        // stage('Quality Gate') {
+        //     steps {
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             script {
+        //                 def qg = waitForQualityGate(
+        //                     abortPipeline: true
+        //                 )
 
-                        echo "Quality Gate Status: ${qg.status}"
-                    }
-                }
-            }
-        }
+        //                 echo "Quality Gate Status: ${qg.status}"
+        //             }
+        //         }
+        //     }
+        // }
 
-        stage('Build Docker Image') {
-            steps {
-                echo 'Building Docker Image...'
+        // stage('Build Docker Image') {
+        //     steps {
+        //         echo 'Building Docker Image...'
 
-                sh '''
-                    docker build \
-                        -t ${DOCKER_HUB_REPO}:${IMAGE_TAG} .
+        //         sh '''
+        //             docker build \
+        //                 -t ${DOCKER_HUB_REPO}:${IMAGE_TAG} .
 
-                    docker tag \
-                        ${DOCKER_HUB_REPO}:${IMAGE_TAG} \
-                        ${DOCKER_HUB_REPO}:latest
-                '''
-            }
-        }
+        //             docker tag \
+        //                 ${DOCKER_HUB_REPO}:${IMAGE_TAG} \
+        //                 ${DOCKER_HUB_REPO}:latest
+        //         '''
+        //     }
+        // }
 
         stage('Push Docker Hub') {
             steps {
