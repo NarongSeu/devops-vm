@@ -10,7 +10,7 @@ const HomePage = () => {
                 <div className="container pt-4   order-2 order-md-1">
                     <h1 className="display-2 header-title">
                         {" "}
-                      Welcome to Plalform hasha auto deploy(2026) 
+                      Welcome to Plalform hasha auto deploy(2026) From hacker 
                     </h1>
                     <h1>Sonar-check-tes</h1>
                     <p> We are a team of passionate people whose goal is to improve everyone's life through disruptive products. We build great products to solve your business problems.</p>

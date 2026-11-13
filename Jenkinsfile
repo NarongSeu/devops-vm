@@ -6,6 +6,11 @@ pipeline {
         nodejs 'nodejs-v22'
     }
 
+    // Automatically build when GitHub receives a push
+    triggers {
+        githubPush()
+    }
+
     parameters {
         booleanParam(
             name: 'RUN_TEST',
@@ -22,7 +27,7 @@ pipeline {
     }
 
     options {
-        // Keep the latest 3 builds or builds from the last 7 days
+        skipDefaultCheckout(true)
         timeout(time: 15, unit: 'MINUTES')
         buildDiscarder(
             logRotator(
@@ -34,14 +39,12 @@ pipeline {
 
     stages {
 
-        // Stage 1: Call another Jenkins job
         stage('Call Other Job') {
             steps {
-                build 'first-demo'
+                build job: 'first-demo'
             }
         }
 
-        // Stage 2: Check tools
         stage('Test Tools') {
             steps {
                 sh '''
@@ -55,8 +58,7 @@ pipeline {
             }
         }
 
-        // Stage 3: Git Clone
-        stage('Git Clone') {
+        stage('Git Checkout') {
             steps {
                 echo 'Cloning GitHub Repository...'
 
@@ -65,7 +67,6 @@ pipeline {
             }
         }
 
-        // Stage 4: Run Tests (Optional)
         stage('Run Test') {
             when {
                 expression {
@@ -74,16 +75,12 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Installing dependencies..."
                     npm install
-
-                    echo "Running tests..."
                     npm run test
                 '''
             }
         }
 
-        // Stage 5: SonarQube Analysis
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -103,7 +100,6 @@ pipeline {
             }
         }
 
-        // Stage 6: Quality Gate
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
@@ -118,7 +114,6 @@ pipeline {
             }
         }
 
-        // Stage 7: Build Docker Image
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker Image...'
@@ -134,7 +129,6 @@ pipeline {
             }
         }
 
-        // Stage 8: Push Docker Hub
         stage('Push Docker Hub') {
             steps {
                 withCredentials([
@@ -150,14 +144,11 @@ pipeline {
 
                         docker push ${DOCKER_HUB_REPO}:${IMAGE_TAG}
                         docker push ${DOCKER_HUB_REPO}:latest
-
-                        docker logout
                     '''
                 }
             }
         }
 
-        // Stage 9: Deploy
         stage('Deploy') {
             steps {
                 echo 'Deploying React Application...'
@@ -177,7 +168,6 @@ pipeline {
             }
         }
 
-        // Stage 10: Verify Application
         stage('Verify Application') {
             steps {
                 sh '''
@@ -198,7 +188,7 @@ pipeline {
 
         success {
             echo 'SUCCESS: Pipeline executed successfully!'
-            echo 'SonarQube: http://3.25.79.190:9000'
+            echo 'SonarQube: https://sonarqube.lorvengroth.cfd'
             echo 'Application: http://3.25.79.190:3005'
         }
 
