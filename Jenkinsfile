@@ -88,22 +88,20 @@ pipeline {
         // 3. RUN REACT TESTS
         // ==========================================
 
+        
         stage('Run Test') {
-            when {
-                expression {
-                    params.RUN_TEST == true
-                }
-            }
-
             steps {
-                echo 'Running React application tests...'
+                echo 'Installing dependencies and running React tests...'
 
                 sh '''
                     npm install
-                    npm run test
+                    npm run test:coverage
                 '''
+
+                echo 'React tests completed!'
             }
         }
+
 
         // ==========================================
         // 4. SONARQUBE ANALYSIS
@@ -133,34 +131,29 @@ pipeline {
         // 5. QUALITY GATE
         // ==========================================
 
+
         stage('Quality Gate') {
             steps {
-                timeout(
-                    time: 5,
-                    unit: 'MINUTES'
-                ) {
-
+                timeout(time: 5, unit: 'MINUTES') {
                     script {
 
                         def qg = waitForQualityGate(
                             abortPipeline: false
                         )
 
-                        echo "===================================="
-                        echo "SONARQUBE QUALITY GATE RESULT"
-                        echo "===================================="
+                        echo "================================"
+                        echo "SONARQUBE QUALITY GATE"
+                        echo "================================"
                         echo "Status: ${qg.status}"
-                        echo "===================================="
 
                         if (qg.status != 'OK') {
-
                             error(
-                                "QUALITY GATE FAILED: ${qg.status}. " +
-                                "Please check SonarQube dashboard."
+                                "Quality Gate FAILED: ${qg.status}. " +
+                                "Check failed conditions in SonarQube."
                             )
                         }
 
-                        echo 'QUALITY GATE PASSED!'
+                        echo "Quality Gate PASSED!"
                     }
                 }
             }
